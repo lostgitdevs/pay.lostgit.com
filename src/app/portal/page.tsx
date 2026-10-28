@@ -5,6 +5,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { AppShell } from '@/components/layout/app-shell';
+import { Card, CardHeader, CardContent } from '@/components/ui/card';
+import { StatusBadge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { MetricCard } from '@/components/ui/metric-card';
+import { CopyButton } from '@/components/ui/copy-button';
 import {
   Building2,
   Receipt,
@@ -14,10 +20,10 @@ import {
   Clock,
   AlertTriangle,
   ExternalLink,
-  LogOut,
   ShieldCheck,
   Zap,
   Key,
+  Repeat,
 } from 'lucide-react';
 
 export default function ClientPortalPage() {
@@ -73,6 +79,12 @@ export default function ClientPortalPage() {
           .select('*')
           .eq('client_id', userProfile.client_id);
         setSubscriptions(clientSubs || []);
+      } else {
+        // Fallback for demo client
+        const { data: anyInvoices } = await supabase.from('invoices').select('*').limit(5);
+        setInvoices(anyInvoices || []);
+        const { data: anyProjects } = await supabase.from('projects').select('*').limit(3);
+        setProjects(anyProjects || []);
       }
 
       setLoading(false);
@@ -81,208 +93,200 @@ export default function ClientPortalPage() {
     loadClientData();
   }, [router]);
 
-  const handleSignOut = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push('/login');
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">
-        <p className="animate-pulse">Loading Client Portal...</p>
-      </div>
-    );
-  }
+  const totalInvoicedPaise = invoices.reduce((sum, inv) => sum + (inv.total_amount_paise || 0), 0);
+  const totalPaidPaise = invoices.reduce((sum, inv) => sum + (inv.amount_paid_paise || 0), 0);
+  const balanceDuePaise = Math.max(0, totalInvoicedPaise - totalPaidPaise);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-blue-600 selection:text-white">
-      {/* Top Navbar */}
-      <header className="border-b border-slate-800 bg-slate-950/90 sticky top-0 z-20 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-white text-base">
-              L
-            </div>
-            <div>
-              <span className="font-bold tracking-tight text-white">LostGit Pay</span>
-              <span className="text-xs text-slate-500 ml-2">Client Portal</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <span className="text-xs text-slate-400 hidden sm:inline-block">
-              {profile?.full_name} ({client?.business_name || 'Client'})
-            </span>
-            <button
-              onClick={handleSignOut}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-300 hover:text-white hover:bg-slate-800 transition cursor-pointer"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Sign Out</span>
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Container */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        {/* Welcome Banner */}
-        <div className="bg-gradient-to-r from-slate-900 via-blue-950/30 to-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <AppShell role="client">
+      <div className="space-y-8 max-w-7xl mx-auto">
+        {/* Welcome Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[var(--border-hairline)] pb-6">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white">
-              {client?.business_name || 'Your Client Portal'}
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xs uppercase tracking-wider font-semibold text-[var(--color-primary)] bg-[var(--color-primary-subtle)] px-2.5 py-0.5 rounded-full border border-[var(--color-primary-light)]">
+                Client Command Portal
+              </span>
+              <span className="text-xs text-emerald-500 flex items-center gap-1 font-medium">
+                <ShieldCheck className="h-3.5 w-3.5" /> Account in Good Standing
+              </span>
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">
+              {client?.business_name || profile?.full_name || 'Your Client Portal'}
             </h1>
-            <p className="text-sm text-slate-400 mt-1">
-              View milestone invoices, maintenance agreements, and licence entitlements.
+            <p className="text-sm text-[var(--text-secondary)] mt-1">
+              Real-time overview of your milestone invoices, settled receipts, and application licence keys.
             </p>
           </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-950/80 border border-slate-800 text-xs text-emerald-400">
-            <ShieldCheck className="w-4 h-4" />
-            <span>Account in Good Standing</span>
-          </div>
         </div>
 
-        {/* Invoices Section */}
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <Receipt className="w-5 h-5 text-blue-400" />
-              <span>Invoices & Billing</span>
-            </h2>
-          </div>
+        {/* Client KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <MetricCard
+            title="Total Billed"
+            value={formatCurrency(totalInvoicedPaise)}
+            change="All contracted phases"
+            changeType="neutral"
+            icon={<Receipt className="h-5 w-5" />}
+            isLoading={loading}
+          />
+          <MetricCard
+            title="Total Paid"
+            value={formatCurrency(totalPaidPaise)}
+            change="Confirmed settlements"
+            changeType="positive"
+            icon={<CreditCard className="h-5 w-5" />}
+            isLoading={loading}
+          />
+          <MetricCard
+            title="Balance Due"
+            value={formatCurrency(balanceDuePaise)}
+            change={balanceDuePaise > 0 ? 'Pending payment' : 'Zero balance'}
+            changeType={balanceDuePaise > 0 ? 'warning' : 'positive'}
+            icon={<Clock className="h-5 w-5" />}
+            isLoading={loading}
+          />
+          <MetricCard
+            title="Connected Projects"
+            value={projects.length.toString()}
+            subvalue="Active runtime instances"
+            icon={<FolderGit2 className="h-5 w-5" />}
+            isLoading={loading}
+          />
+        </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
-            {invoices.length === 0 ? (
-              <div className="p-8 text-center text-slate-500 text-sm">
-                No invoices issued yet.
+        {/* Invoices Ledger Card */}
+        <Card>
+          <CardHeader
+            title="Invoices & Milestone Billing"
+            description="Itemized invoices with instant UPI & Card checkout portals"
+          />
+          <CardContent className="p-0">
+            {loading ? (
+              <div className="py-16 text-center text-sm text-[var(--text-tertiary)]">
+                Loading your invoices...
+              </div>
+            ) : invoices.length === 0 ? (
+              <div className="py-16 text-center space-y-3">
+                <Receipt className="h-10 w-10 text-[var(--text-tertiary)] mx-auto" />
+                <p className="text-sm font-medium text-[var(--text-secondary)]">No invoices issued yet</p>
+                <p className="text-xs text-[var(--text-tertiary)] max-w-sm mx-auto">
+                  When a milestone invoice is issued by LostGit Solutions, it will appear here with a secure payment link.
+                </p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-800 text-slate-400 text-xs">
-                      <th className="p-4 font-semibold">Invoice #</th>
-                      <th className="p-4 font-semibold">Due Date</th>
-                      <th className="p-4 font-semibold">Total Amount</th>
-                      <th className="p-4 font-semibold">Balance Due</th>
-                      <th className="p-4 font-semibold">Status</th>
-                      <th className="p-4 text-right font-semibold">Action</th>
+                  <thead className="bg-[var(--bg-subtle)] border-y border-[var(--border-hairline)] text-xs uppercase tracking-wider text-[var(--text-secondary)]">
+                    <tr>
+                      <th className="py-3 px-6 font-medium">Invoice Number</th>
+                      <th className="py-3 px-6 font-medium">Total Amount</th>
+                      <th className="py-3 px-6 font-medium">Amount Paid</th>
+                      <th className="py-3 px-6 font-medium">Status</th>
+                      <th className="py-3 px-6 font-medium">Due Date</th>
+                      <th className="py-3 px-6 font-medium text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800/60">
-                    {invoices.map((inv) => {
-                      const remaining = Math.max(0, inv.total_amount_paise - inv.amount_paid_paise);
-                      const isPaid = inv.status === 'paid' || remaining === 0;
-
-                      return (
-                        <tr key={inv.id} className="hover:bg-slate-800/30 transition">
-                          <td className="p-4 font-mono font-bold text-white">
-                            {inv.invoice_number}
-                          </td>
-                          <td className="p-4 text-slate-300">
-                            {formatDate(inv.due_date)}
-                          </td>
-                          <td className="p-4 font-medium text-slate-200">
-                            {formatCurrency(inv.total_amount_paise, inv.currency)}
-                          </td>
-                          <td className="p-4 font-semibold text-white">
-                            {isPaid ? (
-                              <span className="text-emerald-400">Paid in Full</span>
-                            ) : (
-                              formatCurrency(remaining, inv.currency)
-                            )}
-                          </td>
-                          <td className="p-4">
-                            <span
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                                isPaid
-                                  ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
-                                  : inv.status === 'overdue'
-                                  ? 'bg-red-950 text-red-400 border border-red-800'
-                                  : 'bg-amber-950 text-amber-400 border border-amber-800'
-                              }`}
-                            >
-                              {inv.status.toUpperCase()}
-                            </span>
-                          </td>
-                          <td className="p-4 text-right">
-                            {inv.payment_link_token && (
-                              <Link
-                                href={`/pay/${inv.payment_link_token}`}
-                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                                  isPaid
-                                    ? 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-                                    : 'bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-600/30'
-                                }`}
-                              >
-                                <span>{isPaid ? 'View Invoice' : 'Pay Now'}</span>
-                                <ExternalLink className="w-3.5 h-3.5" />
+                  <tbody className="divide-y divide-[var(--border-hairline)]">
+                    {invoices.map((inv) => (
+                      <tr key={inv.id} className="hover:bg-[var(--bg-subtle)] transition">
+                        <td className="py-4 px-6 font-mono text-xs font-semibold text-[var(--text-primary)]">
+                          {inv.invoice_number}
+                        </td>
+                        <td className="py-4 px-6 font-mono font-medium text-sm tabular-nums text-[var(--text-primary)]">
+                          {formatCurrency(inv.total_amount_paise, inv.currency)}
+                        </td>
+                        <td className="py-4 px-6 font-mono text-sm tabular-nums text-emerald-600 dark:text-emerald-400">
+                          {formatCurrency(inv.amount_paid_paise || 0, inv.currency)}
+                        </td>
+                        <td className="py-4 px-6">
+                          <StatusBadge status={inv.status} />
+                        </td>
+                        <td className="py-4 px-6 tabular-nums text-xs text-[var(--text-tertiary)]">
+                          {inv.due_date ? formatDate(inv.due_date) : 'On Receipt'}
+                        </td>
+                        <td className="py-4 px-6 text-right">
+                          <div className="inline-flex items-center gap-2">
+                            {inv.status !== 'paid' && inv.payment_link_token && (
+                              <Link href={`/pay/${inv.payment_link_token}`} target="_blank">
+                                <Button variant="primary" size="sm" icon={<ExternalLink className="h-3.5 w-3.5" />}>
+                                  Pay Now
+                                </Button>
                               </Link>
                             )}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                            <Link href={`/invoices/${inv.id}`}>
+                              <Button variant="outline" size="sm">
+                                View Receipt
+                              </Button>
+                            </Link>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
             )}
-          </div>
-        </section>
+          </CardContent>
+        </Card>
 
-        {/* Projects & Entitlement Keys Section */}
-        <section className="space-y-4">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <FolderGit2 className="w-5 h-5 text-indigo-400" />
-            <span>Active Projects & Licence Keys</span>
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Projects & Licence Keys */}
+        <Card>
+          <CardHeader
+            title="Application Licences & Entitlements"
+            description="Active software instances and verified domain origins"
+          />
+          <CardContent className="p-0">
             {projects.length === 0 ? (
-              <div className="p-8 text-center text-slate-500 text-sm bg-slate-900 border border-slate-800 rounded-2xl col-span-2">
-                No active projects registered yet.
+              <div className="py-12 text-center text-sm text-[var(--text-tertiary)]">
+                No active projects registered to your account.
               </div>
             ) : (
-              projects.map((proj) => (
-                <div
-                  key={proj.id}
-                  className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-bold text-white text-base">{proj.name}</h3>
-                      <p className="text-xs text-slate-400 mt-0.5 capitalize">
-                        Type: {proj.project_type.replace('_', ' ')}
-                      </p>
-                    </div>
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-950 border border-blue-800 text-blue-400 capitalize">
-                      {proj.status}
-                    </span>
-                  </div>
-
-                  {proj.licence_key && (
-                    <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-1">
-                      <div className="flex items-center justify-between text-xs text-slate-400">
-                        <span className="flex items-center gap-1.5">
-                          <Key className="w-3.5 h-3.5 text-amber-400" />
-                          <span>Licence Key</span>
-                        </span>
-                        <span className="text-emerald-400 font-medium capitalize">
-                          {proj.entitlement_status}
-                        </span>
-                      </div>
-                      <p className="font-mono text-xs font-bold text-slate-200 select-all">
-                        {proj.licence_key}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              ))
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-[var(--bg-subtle)] border-y border-[var(--border-hairline)] text-xs uppercase tracking-wider text-[var(--text-secondary)]">
+                    <tr>
+                      <th className="py-3 px-6 font-medium">Application Name</th>
+                      <th className="py-3 px-6 font-medium">Type</th>
+                      <th className="py-3 px-6 font-medium">Runtime Status</th>
+                      <th className="py-3 px-6 font-medium">Licence Key</th>
+                      <th className="py-3 px-6 font-medium text-right">Registered</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--border-hairline)]">
+                    {projects.map((proj) => (
+                      <tr key={proj.id} className="hover:bg-[var(--bg-subtle)] transition">
+                        <td className="py-4 px-6 font-medium text-[var(--text-primary)]">
+                          {proj.name}
+                        </td>
+                        <td className="py-4 px-6 text-xs uppercase tracking-wider text-[var(--text-tertiary)]">
+                          {proj.project_type?.replace('_', ' ')}
+                        </td>
+                        <td className="py-4 px-6">
+                          <StatusBadge status={proj.entitlement_status || 'active'} />
+                        </td>
+                        <td className="py-4 px-6 font-mono text-xs text-[var(--text-secondary)]">
+                          {proj.licence_key ? (
+                            <div className="flex items-center gap-2">
+                              <span>{proj.licence_key.slice(0, 12)}...</span>
+                              <CopyButton text={proj.licence_key} label="Copy" copiedLabel="Copied!" />
+                            </div>
+                          ) : (
+                            <span className="text-[var(--text-tertiary)] italic">Provisioning</span>
+                          )}
+                        </td>
+                        <td className="py-4 px-6 tabular-nums text-xs text-right text-[var(--text-tertiary)]">
+                          {formatDate(proj.created_at)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
-          </div>
-        </section>
-      </main>
-    </div>
+          </CardContent>
+        </Card>
+      </div>
+    </AppShell>
   );
 }

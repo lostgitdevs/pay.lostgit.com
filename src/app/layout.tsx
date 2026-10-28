@@ -17,6 +17,8 @@ export const metadata: Metadata = {
   description: 'Enterprise payment and client billing platform by LostGit Solutions.',
 };
 
+import { ThemeProvider } from '@/components/theme-provider';
+
 export default function RootLayout({
   children,
 }: {
@@ -26,9 +28,13 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col bg-slate-950 text-slate-100 font-sans selection:bg-blue-600 selection:text-white">
-        {children}
+      <body
+        suppressHydrationWarning
+        className="min-h-full flex flex-col font-sans selection:bg-[#6D5EF5] selection:text-white"
+      >
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   );

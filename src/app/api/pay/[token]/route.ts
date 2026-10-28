@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 import { INVOICE_STATUS } from '@/lib/constants';
 
+export const dynamic = 'force-dynamic';
+
 interface RouteContext {
   params: Promise<{
     token: string;

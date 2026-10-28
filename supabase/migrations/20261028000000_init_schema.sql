@@ -2,7 +2,7 @@
 -- LostGit Pay: Production Schema Migration
 -- Migration: 20261028000000_init_schema.sql
 -- Description: Core tables, enums, indexes, and triggers for LostGit Pay
--- Currency convention: ALL monetary values are stored in integer PAIS (1 INR = 100 paise)
+-- Currency convention: ALL monetary values are stored in integer PAISE (1 INR = 100 paise)
 -- ============================================================================
 
 -- Extensions
@@ -21,28 +21,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ----------------------------------------------------------------------------
--- 2. Profiles Table (extends Supabase auth.users)
--- ----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS profiles (
-    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-    email TEXT NOT NULL UNIQUE,
-    full_name TEXT NOT NULL,
-    role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'finance', 'support', 'client')),
-    client_id UUID, -- NULL for staff, links to clients table for client users
-    phone TEXT,
-    avatar_url TEXT,
-    is_active BOOLEAN NOT NULL DEFAULT true,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TRIGGER update_profiles_updated_at
-    BEFORE UPDATE ON profiles
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
-
--- ----------------------------------------------------------------------------
--- 3. Clients Table
+-- 2. Clients Table (Created first so profiles and projects can reference it)
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS clients (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -58,16 +37,41 @@ CREATE TABLE IF NOT EXISTS clients (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Foreign key back to clients from profiles
-ALTER TABLE profiles
-    ADD CONSTRAINT fk_profiles_client
-    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE SET NULL;
-
 CREATE INDEX IF NOT EXISTS idx_clients_email ON clients(email);
 CREATE INDEX IF NOT EXISTS idx_clients_status ON clients(status);
 
+DROP TRIGGER IF EXISTS update_clients_updated_at ON clients;
 CREATE TRIGGER update_clients_updated_at
     BEFORE UPDATE ON clients
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- ----------------------------------------------------------------------------
+-- 3. Profiles Table (extends Supabase auth.users)
+-- ----------------------------------------------------------------------------
+-- Drop any conflicting or empty starter template table if it existed
+DROP TABLE IF EXISTS profiles CASCADE;
+
+CREATE TABLE profiles (
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    email TEXT,
+    full_name TEXT NOT NULL DEFAULT '',
+    role TEXT NOT NULL DEFAULT 'client' CHECK (role IN ('owner', 'admin', 'finance', 'support', 'client')),
+    client_id UUID REFERENCES clients(id) ON DELETE SET NULL,
+    phone TEXT,
+    avatar_url TEXT,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_profiles_email ON profiles(email);
+CREATE INDEX IF NOT EXISTS idx_profiles_client_id ON profiles(client_id);
+CREATE INDEX IF NOT EXISTS idx_profiles_role ON profiles(role);
+
+DROP TRIGGER IF EXISTS update_profiles_updated_at ON profiles;
+CREATE TRIGGER update_profiles_updated_at
+    BEFORE UPDATE ON profiles
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
@@ -96,6 +100,7 @@ CREATE INDEX IF NOT EXISTS idx_projects_client_id ON projects(client_id);
 CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status);
 CREATE INDEX IF NOT EXISTS idx_projects_licence_key ON projects(licence_key);
 
+DROP TRIGGER IF EXISTS update_projects_updated_at ON projects;
 CREATE TRIGGER update_projects_updated_at
     BEFORE UPDATE ON projects
     FOR EACH ROW
@@ -137,6 +142,7 @@ CREATE INDEX IF NOT EXISTS idx_invoices_due_date ON invoices(due_date);
 CREATE INDEX IF NOT EXISTS idx_invoices_payment_link_token ON invoices(payment_link_token);
 CREATE INDEX IF NOT EXISTS idx_invoices_razorpay_order_id ON invoices(razorpay_order_id);
 
+DROP TRIGGER IF EXISTS update_invoices_updated_at ON invoices;
 CREATE TRIGGER update_invoices_updated_at
     BEFORE UPDATE ON invoices
     FOR EACH ROW
@@ -178,6 +184,7 @@ CREATE TABLE IF NOT EXISTS payment_plans (
 CREATE INDEX IF NOT EXISTS idx_payment_plans_client_id ON payment_plans(client_id);
 CREATE INDEX IF NOT EXISTS idx_payment_plans_invoice_id ON payment_plans(invoice_id);
 
+DROP TRIGGER IF EXISTS update_payment_plans_updated_at ON payment_plans;
 CREATE TRIGGER update_payment_plans_updated_at
     BEFORE UPDATE ON payment_plans
     FOR EACH ROW
@@ -207,6 +214,7 @@ CREATE INDEX IF NOT EXISTS idx_instalments_payment_plan_id ON instalments(paymen
 CREATE INDEX IF NOT EXISTS idx_instalments_due_date ON instalments(due_date);
 CREATE INDEX IF NOT EXISTS idx_instalments_status ON instalments(status);
 
+DROP TRIGGER IF EXISTS update_instalments_updated_at ON instalments;
 CREATE TRIGGER update_instalments_updated_at
     BEFORE UPDATE ON instalments
     FOR EACH ROW
@@ -241,6 +249,7 @@ CREATE INDEX IF NOT EXISTS idx_subscriptions_client_id ON subscriptions(client_i
 CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(status);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_razorpay_id ON subscriptions(razorpay_subscription_id);
 
+DROP TRIGGER IF EXISTS update_subscriptions_updated_at ON subscriptions;
 CREATE TRIGGER update_subscriptions_updated_at
     BEFORE UPDATE ON subscriptions
     FOR EACH ROW
@@ -277,6 +286,7 @@ CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
 CREATE INDEX IF NOT EXISTS idx_payments_razorpay_payment_id ON payments(razorpay_payment_id);
 CREATE INDEX IF NOT EXISTS idx_payments_receipt_number ON payments(receipt_number);
 
+DROP TRIGGER IF EXISTS update_payments_updated_at ON payments;
 CREATE TRIGGER update_payments_updated_at
     BEFORE UPDATE ON payments
     FOR EACH ROW
@@ -300,6 +310,7 @@ CREATE TABLE IF NOT EXISTS refunds (
 CREATE INDEX IF NOT EXISTS idx_refunds_payment_id ON refunds(payment_id);
 CREATE INDEX IF NOT EXISTS idx_refunds_razorpay_refund_id ON refunds(razorpay_refund_id);
 
+DROP TRIGGER IF EXISTS update_refunds_updated_at ON refunds;
 CREATE TRIGGER update_refunds_updated_at
     BEFORE UPDATE ON refunds
     FOR EACH ROW
@@ -345,6 +356,7 @@ CREATE INDEX IF NOT EXISTS idx_licences_project_id ON licences(project_id);
 CREATE INDEX IF NOT EXISTS idx_licences_licence_key ON licences(licence_key);
 CREATE INDEX IF NOT EXISTS idx_licences_status ON licences(status);
 
+DROP TRIGGER IF EXISTS update_licences_updated_at ON licences;
 CREATE TRIGGER update_licences_updated_at
     BEFORE UPDATE ON licences
     FOR EACH ROW

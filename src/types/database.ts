@@ -684,6 +684,141 @@ export interface Database {
         };
         Relationships: [];
       };
+      analytics_events: {
+        Row: {
+          id: string;
+          project_id: string;
+          event_type: 'pageview' | 'click' | 'heartbeat' | 'session_end' | 'error';
+          session_id: string;
+          visitor_hash: string;
+          path: string;
+          title: string | null;
+          referrer: string | null;
+          device_category: 'desktop' | 'mobile' | 'tablet' | null;
+          browser: string | null;
+          duration_seconds: number;
+          element_tag: string | null;
+          element_id: string | null;
+          element_text: string | null;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          project_id: string;
+          event_type: 'pageview' | 'click' | 'heartbeat' | 'session_end' | 'error';
+          session_id: string;
+          visitor_hash: string;
+          path: string;
+          title?: string | null;
+          referrer?: string | null;
+          device_category?: 'desktop' | 'mobile' | 'tablet' | null;
+          browser?: string | null;
+          duration_seconds?: number;
+          element_tag?: string | null;
+          element_id?: string | null;
+          element_text?: string | null;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          project_id?: string;
+          event_type?: 'pageview' | 'click' | 'heartbeat' | 'session_end' | 'error';
+          session_id?: string;
+          visitor_hash?: string;
+          path?: string;
+          title?: string | null;
+          referrer?: string | null;
+          device_category?: 'desktop' | 'mobile' | 'tablet' | null;
+          browser?: string | null;
+          duration_seconds?: number;
+          element_tag?: string | null;
+          element_id?: string | null;
+          element_text?: string | null;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      analytics_sessions: {
+        Row: {
+          id: string;
+          project_id: string;
+          session_id: string;
+          visitor_hash: string;
+          entry_path: string;
+          exit_path: string | null;
+          page_views_count: number;
+          total_duration_seconds: number;
+          is_bounce: boolean;
+          started_at: string;
+          ended_at: string;
+        };
+        Insert: {
+          id?: string;
+          project_id: string;
+          session_id: string;
+          visitor_hash: string;
+          entry_path: string;
+          exit_path?: string | null;
+          page_views_count?: number;
+          total_duration_seconds?: number;
+          is_bounce?: boolean;
+          started_at?: string;
+          ended_at?: string;
+        };
+        Update: {
+          id?: string;
+          project_id?: string;
+          session_id?: string;
+          visitor_hash?: string;
+          entry_path?: string;
+          exit_path?: string | null;
+          page_views_count?: number;
+          total_duration_seconds?: number;
+          is_bounce?: boolean;
+          started_at?: string;
+          ended_at?: string;
+        };
+        Relationships: [];
+      };
+      project_integrations: {
+        Row: {
+          id: string;
+          project_id: string;
+          sdk_version: string;
+          status: 'healthy' | 'degraded' | 'offline';
+          last_ping_at: string;
+          latency_ms: number;
+          error_count: number;
+          last_error: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          project_id: string;
+          sdk_version?: string;
+          status?: 'healthy' | 'degraded' | 'offline';
+          last_ping_at?: string;
+          latency_ms?: number;
+          error_count?: number;
+          last_error?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          project_id?: string;
+          sdk_version?: string;
+          status?: 'healthy' | 'degraded' | 'offline';
+          last_ping_at?: string;
+          latency_ms?: number;
+          error_count?: number;
+          last_error?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
